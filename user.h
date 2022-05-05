@@ -23,6 +23,9 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+// new functions for process status command and change priority of given process
+int cps(void);
+int chpr(int pid, int priority);
 
 // ulib.c
 int stat(const char*, struct stat*);

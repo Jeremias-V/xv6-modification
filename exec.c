@@ -99,6 +99,8 @@ exec(char *path, char **argv)
   curproc->sz = sz;
   curproc->tf->eip = elf.entry;  // main
   curproc->tf->esp = sp;
+  // child process is expected to have higher priority than parent.
+  curproc->priority = 2; //Giving child process default priority of 2
   switchuvm(curproc);
   freevm(oldpgdir);
   return 0;

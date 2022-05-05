@@ -120,6 +120,9 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+// new functions for process status command and change priority of given process
+int		        cps(void);
+int 		    chpr(int pid, int priority);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
