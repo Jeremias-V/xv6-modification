@@ -7,6 +7,61 @@
 #include "proc.h"
 #include "spinlock.h"
 
+/* 
+ * Queue implementation from 
+ * https://www.tutorialspoint.com/data_structures_algorithms/queue_program_in_c.htm
+ * The queue stores de index of the processes in ptable not the process itself.
+ */
+
+int proc_queue[NPROC];
+int front = 0;
+int rear = -1;
+int itemCount = 0;
+
+int peek() {
+  return proc_queue[front];
+}
+
+int isEmpty() {
+  return itemCount == 0;
+}
+
+int isFull() {
+  return itemCount == NPROC;
+}
+
+int size() {
+  return itemCount;
+}
+
+void insert(int data) {
+
+  if (!isFull()) {
+
+    if (rear == NPROC - 1) {
+      rear = -1;
+    }
+
+    proc_queue[++rear] = data;
+    itemCount++;
+  }
+}
+
+int removeData() {
+  int data = proc_queue[front++];
+
+  if (front == NPROC) {
+    front = 0;
+  }
+
+  itemCount--;
+  return data;
+}
+
+/* 
+ * End of queue definition
+ */
+
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -321,6 +376,62 @@ wait(void)
 //  - swtch to start running that process
 //  - eventually that process transfers control
 //      via swtch back to the scheduler.
+
+void
+scheduler(void)
+{
+  struct proc *p;
+  struct cpu *c = mycpu();
+  int pidx;
+  c->proc = 0;
+  
+  for(;;){
+    // Enable interrupts on this processor.
+    sti();
+
+    // Loop over process table looking for process to run.
+    acquire(&ptable.lock);
+
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->state != RUNNABLE)
+        continue;
+
+      // If it finds a runnable process, add the
+      // process index (pidx) to the queue (FCFS).
+      pidx = p - &ptable.proc[0];
+      insert(pidx);
+    }
+
+    // While queue has RUNNABLE PROCESSES
+    while(!isEmpty()){
+
+      // Get the pidx in front of the queue and
+      // assign the process to p.
+      pidx = removeData();
+      p = &ptable.proc[pidx];
+
+      // Switch to chosen process.  It is the process's job
+      // to release ptable.lock and then reacquire it
+      // before jumping back to us.
+      c->proc = p;
+      switchuvm(p);
+      p->state = RUNNING;
+
+      swtch(&(c->scheduler), p->context);
+      switchkvm();
+
+      // Process is done running for now.
+      // It should have changed its p->state before coming back.
+      c->proc = 0;
+
+    }
+
+    release(&ptable.lock);
+
+  }
+}
+
+/* Scheduler implementation with process priority
 void
 scheduler(void)
 {
@@ -365,6 +476,7 @@ scheduler(void)
     
   }
 }
+*/
 
 // Enter scheduler.  Must hold only ptable.lock
 // and have changed proc->state. Saves and restores
