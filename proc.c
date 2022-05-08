@@ -206,6 +206,8 @@ userinit(void)
   acquire(&ptable.lock);
 
   p->state = RUNNABLE;
+  insert(p - &ptable.proc[0]);
+
 
   release(&ptable.lock);
 }
@@ -272,6 +274,7 @@ fork(void)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
+  insert(np - &ptable.proc[0]);
 
   release(&ptable.lock);
 
@@ -389,20 +392,10 @@ scheduler(void)
     // Enable interrupts on this processor.
     sti();
 
-    // Loop over process table looking for process to run.
+    // Loop over process queue to run processes.
     acquire(&ptable.lock);
 
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
-
-      // If it finds a runnable process, add the
-      // process index (pidx) to the queue (FCFS).
-      pidx = p - &ptable.proc[0];
-      insert(pidx);
-    }
-
-    // While queue has RUNNABLE PROCESSES
+    // While queue has RUNNABLE PROCESSES (FCFS)
     while(!isEmpty()){
 
       // Get the pidx in front of the queue and
@@ -509,7 +502,9 @@ void
 yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
-  myproc()->state = RUNNABLE;
+  struct proc *p = myproc();
+  p->state = RUNNABLE;
+  insert(p - &ptable.proc[0]);
   sched();
   release(&ptable.lock);
 }
@@ -583,8 +578,10 @@ wakeup1(void *chan)
   struct proc *p;
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan)
+    if(p->state == SLEEPING && p->chan == chan){
       p->state = RUNNABLE;
+      insert(p - &ptable.proc[0]);
+    }
 }
 
 // Wake up all processes sleeping on chan.
@@ -609,8 +606,10 @@ kill(int pid)
     if(p->pid == pid){
       p->killed = 1;
       // Wake process from sleep if necessary.
-      if(p->state == SLEEPING)
+      if(p->state == SLEEPING){
         p->state = RUNNABLE;
+        insert(p - &ptable.proc[0]);
+      }
       release(&ptable.lock);
       return 0;
     }
